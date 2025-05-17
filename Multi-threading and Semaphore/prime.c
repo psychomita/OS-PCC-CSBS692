@@ -1,62 +1,56 @@
+#include <stdio.h>
 #include <pthread.h>
 #include <stdbool.h>
-#include <stdio.h>
-#include <stdlib.h>
 
-#define NUM_THREADS 10
-#define MAX_RANGE 100
+// Define a structure using typedef to hold the data
+typedef struct {
+    int num;
+    char result[10];
+} thread_data_t;
 
 // Function to check if a number is prime
-bool is_prime(int n) {
-  if (n <= 1)
-    return false;
-  for (int i = 2; i * i <= n; i++) {
-    if (n % i == 0)
-      return false;
-  }
-  return true;
-}
+void* check_prime(void* arg) {
+    thread_data_t* data = (thread_data_t*) arg;
+    int num = data->num;
+    bool is_prime = true;
 
-// Thread function to compute prime numbers in the given range
-void* compute_primes(void* arg) {
-  int* data = (int*)arg;
-  int start = data[0];
-  int end = data[1];
-  int thread_id = data[2];
-
-  for (int i = start; i <= end; i++) {
-    if (is_prime(i)) {
-      printf("From thread %d: %d\n", thread_id, i);
+    if (num <= 1) {
+        is_prime = false;
+    } else {
+        for (int i = 2; i * i <= num; i++) {
+            if (num % i == 0) {
+                is_prime = false;
+                break;
+            }
+        }
     }
-  }
 
-  free(arg);  // Free allocated memory for the argument array
-  pthread_exit(NULL);
+    // Return the result to the main thread
+    if (is_prime) {
+        snprintf(data->result, sizeof(data->result), "PRIME");
+    } else {
+        snprintf(data->result, sizeof(data->result), "NOT PRIME");
+    }
+
+    pthread_exit(NULL); // Exit the thread
 }
 
 int main() {
-  pthread_t threads[NUM_THREADS];
-  int range_per_thread = MAX_RANGE / NUM_THREADS;
+    pthread_t tid;
+    thread_data_t data;  // Using the typedef struct
 
-  // Create threads and assign range for each thread
-  for (int i = 0; i < NUM_THREADS; i++) {
-    int* data = (int*)malloc(3 * sizeof(int));  // Allocate memory for start, end, and thread_id
+    // Input the number
+    printf("Enter an integer: ");
+    scanf("%d", &data.num);
 
-    data[0] = i * range_per_thread + 1;    // Start of the range
-    data[1] = (i + 1) * range_per_thread;  // End of the range
-    data[2] = i + 1;                       // Thread ID
+    // Create a thread to check whether the number is prime
+    pthread_create(&tid, NULL, check_prime, &data);
 
-    if (i == NUM_THREADS - 1) {
-      data[1] = MAX_RANGE;  // Ensure the last thread covers till 100
-    }
+    // Wait for the thread to finish
+    pthread_join(tid, NULL);
 
-    pthread_create(&threads[i], NULL, compute_primes, (void*)data);
-  }
+    // Print the result
+    printf("The number %d is %s.\n", data.num, data.result);
 
-  // Wait for all threads to finish
-  for (int i = 0; i < NUM_THREADS; i++) {
-    pthread_join(threads[i], NULL);
-  }
-
-  return 0;
+    return 0;
 }
