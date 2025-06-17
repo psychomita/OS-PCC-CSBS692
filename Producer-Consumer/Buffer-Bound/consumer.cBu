@@ -1,12 +1,3 @@
-/*
- *  Program: consumer.c
- *  Purpose: Demonstrates the Producer-Consumer problem
- *           with bounded buffer (circular queue) in shared memory
- *           using process semaphore for synchronization.
- *  Author : Dipankar Pal
- *  Last updated: 22.10.2024
- */
-
 #include <stdio.h>
 #include <unistd.h>
 #include <fcntl.h>
