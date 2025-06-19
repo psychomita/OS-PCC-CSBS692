@@ -1,86 +1,64 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include <unistd.h>
 #include <string.h>
-#include <ctype.h>
 #include <fcntl.h>
+#include <unistd.h>
 #include <sys/stat.h>
-#include <sys/types.h>
 
 #define FIFO1 "fifo1"
 #define FIFO2 "fifo2"
-#define MAX 100
-
-void to_uppercase(char *str) {
-    for (int i = 0; str[i]; i++)
-        str[i] = toupper(str[i]);
-}
+#define MAX_LEN 1024
 
 int main() {
-    char inputStr[MAX], substring[MAX], finalStr[MAX];
-    int start, count;
+    char input[MAX_LEN];
+    int start, length;
+    char buffer[MAX_LEN];
 
-    // Create named pipes
+    // Create the named pipes (FIFOs) if they do not already exist
     mkfifo(FIFO1, 0666);
     mkfifo(FIFO2, 0666);
 
-    pid_t pid = fork();
+    // Take input string from the user
+    printf("Enter a lowercase string: ");
+    fgets(input, MAX_LEN, stdin);
+    input[strcspn(input, "\n")] = '\0';  // Remove newline character from input
 
-    if (pid > 0) {
-        // Parent process - Sender
-        printf("Sender Process (PID %d)\n", getpid());
-        printf("Enter a lowercase string: ");
-        fgets(inputStr, MAX, stdin);
-        inputStr[strcspn(inputStr, "\n")] = '\0';  // remove newline
+    // Take starting index for substring extraction
+    printf("Enter starting index: ");
+    scanf("%d", &start);
 
-        printf("Enter starting index: ");
-        scanf("%d", &start);
+    // Take number of characters to extract
+    printf("Enter number of characters: ");
+    scanf("%d", &length);
 
-        printf("Enter number of characters: ");
-        scanf("%d", &count);
-
-        // Write to fifo1
-        int fd1 = open(FIFO1, O_WRONLY);
-        write(fd1, inputStr, sizeof(inputStr));
-        write(fd1, &start, sizeof(start));
-        write(fd1, &count, sizeof(count));
-        close(fd1);
-
-        // Read from fifo2
-        int fd2 = open(FIFO2, O_RDONLY);
-        read(fd2, finalStr, sizeof(finalStr));
-        close(fd2);
-
-        printf("Final string from receiver (uppercase substring): %s\n", finalStr);
-
-        // Cleanup
-        unlink(FIFO1);
-        unlink(FIFO2);
+    // Open FIFO1 for writing to send data to receiver
+    int fd1 = open(FIFO1, O_WRONLY);
+    if (fd1 < 0) {
+        perror("Error opening fifo1");
+        exit(EXIT_FAILURE);
     }
-    else if (pid == 0) {
-        // Child process - Receiver
-        sleep(1); // Small delay to ensure sender writes first
-        char buffer[MAX];
-        int startIdx, charCount;
 
-        int fd1 = open(FIFO1, O_RDONLY);
-        read(fd1, buffer, sizeof(buffer));
-        read(fd1, &startIdx, sizeof(startIdx));
-        read(fd1, &charCount, sizeof(charCount));
-        close(fd1);
+    // Format the data as: input string, starting index, and length (each separated by newline)
+    // Limit string to 900 characters to avoid buffer overflow warning
+    snprintf(buffer, sizeof(buffer), "%.900s\n%d\n%d", input, start, length);
 
-        // Extract substring
-        strncpy(substring, buffer + startIdx, charCount);
-        substring[charCount] = '\0';
+    // Write the formatted message to FIFO1
+    write(fd1, buffer, strlen(buffer) + 1);
+    close(fd1);  // Close the FIFO after writing
 
-        // Convert to uppercase
-        to_uppercase(substring);
-
-        // Send back
-        int fd2 = open(FIFO2, O_WRONLY);
-        write(fd2, substring, sizeof(substring));
-        close(fd2);
+    // Open FIFO2 for reading the processed result from receiver
+    int fd2 = open(FIFO2, O_RDONLY);
+    if (fd2 < 0) {
+        perror("Error opening fifo2");
+        exit(EXIT_FAILURE);
     }
+
+    // Read the final uppercase result from the receiver
+    read(fd2, buffer, sizeof(buffer));
+
+    // Display the final result to the user
+    printf("Answer from receiver: %s\n", buffer);
+    close(fd2);  // Close the FIFO after reading
 
     return 0;
 }
