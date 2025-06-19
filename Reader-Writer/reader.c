@@ -4,7 +4,7 @@
 #include <signal.h>
 #include <sys/shm.h>
 #include "psem.h"
-#include "buffer_ReaderWriter.h"
+#include "buffer.h"
 
 const char *FILENAME = "data.txt";
 const int SIZE = 100;
